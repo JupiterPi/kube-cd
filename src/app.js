@@ -14,7 +14,7 @@ const authToken = authTokenEnv.startsWith("token:")
 
 const app = express();
 app.use(bodyParser.text());
-app.post("/applyKubernetesConfiguration/:file", (req, res) => {
+app.post("/applyKubernetesResource/:file", (req, res) => {
     if ((req.headers.authorization ?? "").split(" ")[1] != authToken) {
         res.status(401).send("Authentication required");
         return;
