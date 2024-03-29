@@ -1,11 +1,12 @@
-const fs = require("fs");
-const express = require("express");
-const bodyParser = require("body-parser");
-const childProcess = require("child_process");
+import * as fs from "fs";
+import * as path from "path";
+import express from "express";
+import * as bodyParser from "body-parser";
+import {kubectlApply} from "./kubectl-apply";
 
 const port = process.env["PORT"] ?? 80;
 // where pushed Kubernetes configuration will be stored
-const path = process.env["KUBE_CD_PATH"] ?? "files";
+const root = process.env["KUBE_CD_FILES"] ?? "files";
 // auth token passed by clients on push, needs to be of form "token:***" or "file:***" (file must not contain a newline)
 const authTokenEnv = process.env["KUBE_CD_AUTH_TOKEN"] ?? "file:auth_token";
 const authToken = authTokenEnv.startsWith("token:")
@@ -14,8 +15,8 @@ const authToken = authTokenEnv.startsWith("token:")
 
 const app = express();
 app.use(bodyParser.text());
-app.post("/applyKubernetesResource/:file", (req, res) => {
-    if ((req.headers.authorization ?? "").split(" ")[1] != authToken) {
+app.post("/applyKubernetesResource/:file", async (req, res) => {
+    if ((req.headers.authorization ?? "").split(" ")[1] !== authToken) {
         res.status(401).send("Authentication required");
         return;
     }
@@ -23,9 +24,10 @@ app.post("/applyKubernetesResource/:file", (req, res) => {
     const fileName = req.params.file;
     const file = req.body;
 
-    if (!fs.existsSync(path)) fs.mkdirSync(path);
-    fs.writeFileSync(path + "/" + fileName, file);
-    childProcess.execSync("kubectl apply -f \"" + path + "/" + fileName + "\"");
+    const logsPath = path.join(root, "default");
+    if (!fs.existsSync(logsPath)) fs.mkdirSync(logsPath, {recursive: true});
+    fs.writeFileSync(path.join(logsPath, fileName), file);
+    await kubectlApply(path.join(logsPath, fileName));
     res.send("Applied");
 });
 

@@ -1,0 +1,71 @@
+# kubectl create secret generic kube-cd-auth-token --from-literal=auth_token=*****
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kube-cd
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kube-cd
+  template:
+    metadata:
+      labels:
+        app: kube-cd
+    spec:
+      containers:
+      - name: kube-cd
+        image: jupiterpi/kube-cd
+        imagePullPolicy: Always
+        env:
+        - name: KUBE_CD_FILES
+          value: "/var/kube-cd/files"
+        - name: KUBE_CD_AUTH_TOKEN
+          value: "file:/var/kube-cd/auth_token/auth_token"
+        volumeMounts:
+        - name: auth-token
+          mountPath: "/var/kube-cd/auth_token"
+          readOnly: true
+        - name: files
+          mountPath: "/var/kube-cd/files"
+      volumes:
+      - name: auth-token
+        secret:
+          secretName: kube-cd-auth-token
+      - name: files
+        emptyDir: {}
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: kube-cd
+spec:
+  type: LoadBalancer
+  selector:
+    app: kube-cd
+  ports:
+  - port: 80
+    targetPort: 80
+
+---
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kube-cd
+spec:
+  ingressClassName: public
+  rules:
+  - host: "kube-cd.jupiterpi.de"
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: kube-cd
+            port:
+              number: 80
