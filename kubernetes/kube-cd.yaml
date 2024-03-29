@@ -15,26 +15,40 @@ spec:
         app: kube-cd
     spec:
       containers:
-      - name: kube-cd
-        image: jupiterpi/kube-cd
-        imagePullPolicy: Always
-        env:
-        - name: KUBE_CD_FILES
-          value: "/var/kube-cd/files"
-        - name: KUBE_CD_AUTH_TOKEN
-          value: "file:/var/kube-cd/auth_token/auth_token"
-        volumeMounts:
-        - name: auth-token
-          mountPath: "/var/kube-cd/auth_token"
-          readOnly: true
-        - name: files
-          mountPath: "/var/kube-cd/files"
+        - name: kube-cd
+          image: jupiterpi/kube-cd
+          imagePullPolicy: Always
+          env:
+            - name: KUBE_CD_FILES
+              value: "/var/kube-cd/files"
+            - name: KUBE_CD_AUTH_TOKEN
+              value: "file:/var/kube-cd/auth_token/auth_token"
+          volumeMounts:
+            - name: auth-token
+              mountPath: "/var/kube-cd/auth_token"
+              readOnly: true
+            - name: files
+              mountPath: "/var/kube-cd/files"
       volumes:
-      - name: auth-token
-        secret:
-          secretName: kube-cd-auth-token
-      - name: files
-        emptyDir: {}
+        - name: auth-token
+          secret:
+            secretName: kube-cd-auth-token
+        - name: files
+          persistentVolumeClaim:
+            claimName: kube-cd-files
+
+---
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: kube-cd-files
+spec:
+  resources:
+    requests:
+      storage: 200Mi
+  accessModes:
+    - ReadWriteOnce
 
 ---
 
@@ -47,8 +61,8 @@ spec:
   selector:
     app: kube-cd
   ports:
-  - port: 80
-    targetPort: 80
+    - port: 80
+      targetPort: 80
 
 ---
 
@@ -59,13 +73,13 @@ metadata:
 spec:
   ingressClassName: public
   rules:
-  - host: "kube-cd.jupiterpi.de"
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: kube-cd
-            port:
-              number: 80
+    - host: "kube-cd.jupiterpi.de"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: kube-cd
+                port:
+                  number: 80
